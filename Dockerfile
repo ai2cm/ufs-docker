@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     patch \
     python2.7 \
+    libxml2 \
     libxml2-utils \
     pkg-config \
     gfortran-7 \
@@ -79,10 +80,17 @@ RUN cd NCEPLIBS && \
 ##---------------------------------------------------------------------------------
 FROM ubuntu:18.04 AS ufs-data
 
-RUN apt-get update && apt-get install -y \
-    git && \
+ARG SSH_PRIVATE_KEY
+RUN apt-get update && apt-get install -y git ssh  libxml2 &&\
+    mkdir /root/.ssh/ && \ 
+    echo "${SSH_PRIVATE_KEY}" > /root/.ssh/id_rsa && \
+    chmod 700 /root/.ssh/id_rsa && \
+    touch /root/.ssh/known_hosts && \
+    ssh-keyscan github.com >> /root/.ssh/known_hosts
+
+RUN echo NONSENSE1 && \
     git config --global http.sslverify false && \
-    git clone -b ufs-v1.0.0 --recursive https://github.com/ufs-community/ufs-weather-model
+    git clone -b feature/switch-fv3atm --recursive https://github.com/VulcanClimateModeling/ufs-weather-model
 
 ## UFS build
 ##---------------------------------------------------------------------------------
@@ -94,6 +102,7 @@ COPY --from=NCEPLIBS-build ${UFS_DIR} ${UFS_DIR}
 COPY --from=ufs-data /ufs-weather-model /ufs-weather-model
 
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python2.7 1 && \
+    apt-get install -y libxml2-dev && \
     cd /ufs-weather-model && \
     . ${UFS_DIR}/bin/setenv_nceplibs.sh && \
     export CMAKE_Platform=linux.gnu && \
